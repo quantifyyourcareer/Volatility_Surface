@@ -1,4 +1,4 @@
-## References (matched to what this notebook actually does)
+## References 
 
 ### 1) Black–Scholes option pricing (volatility to price)
 
@@ -81,7 +81,3 @@
     
     Realistic smile and term structure shapes that motivate a “true surface” for simulated data.
     
-
----
-
-## License
