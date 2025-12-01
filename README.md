@@ -120,3 +120,8 @@ Typical dependencies:
 If your notebook uses Plotly:
 ```bash
 pip install numpy pandas scipy plotly openpyxl
+
+Notes and limitations 
+This notebook is educational. It does not enforce no-arbitrage constraints.
+Production volatility surfaces often impose constraints to avoid calendar-spread or butterfly arbitrage.
+Real market data requires extra care: forwards, discount curves, dividends, day count, quote conventions, and filtering stale quotes.
