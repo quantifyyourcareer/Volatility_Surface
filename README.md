@@ -7,7 +7,7 @@ Build an implied-volatility surface from a grid of option prices using:
 2) An implied-volatility solver (root-finding)
 3) Surface smoothing / interpolation
 4) Visualizations: 3D surface, smile, term structure
-5) A companion Excel workbook that mirrors the logic and lets you run Goal Seek
+5) Save the vol surface and prices in Excel 
 
 ---
 
@@ -85,7 +85,7 @@ Real data is discrete and noisy, so we fit an interpolator over \((K,T)\) (or mo
 
 ---
 
-## Synthetic market prices (if included)
+## Synthetic market prices
 If you don’t have real option prices, the project can generate “market” prices by:
 1) Defining a “true” volatility function \(\sigma_{\text{true}}(K,T)\) that has smile + term structure
 2) Pricing each option with Black–Scholes using \(\sigma_{\text{true}}\)
@@ -95,7 +95,7 @@ This is used only to create a clean learning dataset.
 
 ---
 
-## Repo / notebook structure (typical)
+## Repo / notebook structure 
 - `black_scholes_call(...)`  
   Forward pricing: volatility → price
 - `implied_volatility_solver(...)`  
