@@ -1,4 +1,4 @@
-# Volatility_Surface
+# Generate a Volatility Surface
 Generate an Options Volatility Surface from synthetic market prices
 # Volatility Surface Project (Python + Excel)
 
