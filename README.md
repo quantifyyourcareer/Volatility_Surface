@@ -1,6 +1,6 @@
 # Generate a Volatility Surface (from synthetic option prices)
 
-This notebook builds an **implied volatility surface** end-to-end using **synthetic market option prices**. The point is to learn the pipeline clearly.
+This notebook builds an **implied volatility surface** end-to-end using **synthetic market option prices**. The point is to learn the pipeline clearly, without relying on math formatting.
 
 What you build:
 1. **Generate synthetic call option prices** on a strike × maturity grid using a “true” volatility surface.
@@ -17,7 +17,7 @@ What you build:
 
 ## What this project does
 
-In academic Black–Scholes, volatility is one constant number.
+In academic Black–Scholes, volatility is treated as one constant number.
 
 In practice, the market implies **different volatility** depending on:
 - **Strike** (smile or skew)
@@ -30,8 +30,8 @@ This project starts from an option price grid and backs out the implied volatili
 ## Outputs you get
 
 ### Python
-- **Market price grid**: call prices $C_{\mathrm{mkt}}(K,T)$
-- **Implied volatility grid**: $\sigma_{\mathrm{imp}}(K,T)$
+- **Market price grid**: a table of call prices indexed by strike and maturity
+- **Implied volatility grid**: a table of implied volatilities indexed by strike and maturity
 - **Smoothed surface** on a dense grid (clean 3D plot, less bumpiness)
 - Plots:
   - 3D surface
@@ -39,84 +39,65 @@ This project starts from an option price grid and backs out the implied volatili
   - term-structure curves
 
 ### Excel
-- `MarketPrices` (Synthetic prices from `TrueVol`)
-- `ImpliedVol` (Recovered implied volatility grid)
+- `MarketPrices` (synthetic prices generated from the true volatility surface)
+- `ImpliedVol` (recovered implied volatility grid)
 
 ---
 
 ## Methodology
 
 ### Step 1: Define inputs and grids
-- Spot price: $S_0$
-- Risk-free rate: $r$
-- Dividend yield: $q$ (can be zero)
-- Strike grid: $\{K_1,\dots,K_n\}$
-- Maturity grid: $\{T_1,\dots,T_m\}$
+You set:
+- Spot price (current underlying price)
+- Risk-free rate
+- Dividend yield (optionally zero)
+- A strike grid (a list of strikes)
+- A maturity grid (a list of times to expiry)
 
 ### Step 2: Create synthetic “market” option prices
-You define a “true” volatility function $\sigma_{\mathrm{true}}(K,T)$ that has:
-- curvature across strike (smile/skew)
+You define a “true” volatility surface as a function of strike and maturity. It should deliberately create:
+- curvature across strike (smile or skew)
 - structure across time (term structure)
 
-Then you generate synthetic market call prices:
-$$
-C_{\mathrm{mkt}}(K,T) \;=\; C_{\mathrm{BS}}\!\left(S_0, K, T, r, q, \sigma_{\mathrm{true}}(K,T)\right).
-$$
-
-Optional: add small noise to mimic bid-ask / quote error (if enabled in the notebook).
+Then, for every strike and maturity pair, you compute the call option price using Black–Scholes with that true volatility.  
+Optional: add small noise to mimic bid-ask spreads or quote errors.
 
 ### Step 3: Black–Scholes call pricing (forward direction)
-Black–Scholes is the engine that maps volatility to price:
-$$
-C \;=\; S_0 e^{-qT} N(d_1) \;-\; K e^{-rT} N(d_2),
-$$
-$$
-d_1 \;=\; \frac{\ln(S_0/K) + \left(r-q + \frac{1}{2}\sigma^2\right)T}{\sigma\sqrt{T}},
-\qquad
-d_2 \;=\; d_1 - \sigma\sqrt{T}.
-$$
+You implement Black–Scholes from scratch as a pure function:
+- inputs: spot, strike, maturity, risk-free rate, dividend yield, volatility
+- output: call price
 
-This function is called repeatedly by the implied-vol solver.
+This function is called repeatedly by the implied-volatility solver.
 
 ### Step 4: Implied volatility via bisection (inverse direction)
-For each market price $C_{\mathrm{mkt}}(K,T)$, implied volatility solves:
-$$
-f(\sigma) \;=\; C_{\mathrm{BS}}(\sigma; S_0, K, T, r, q) \;-\; C_{\mathrm{mkt}} \;=\; 0.
-$$
+For each synthetic market call price, implied volatility is the volatility that makes Black–Scholes reproduce that price.
 
 The notebook uses **bisection**:
-- pick a low $\sigma_{\mathrm{low}}$ and high $\sigma_{\mathrm{high}}$
-- ensure the root is bracketed (sign change)
-- repeatedly halve the interval until the pricing error is near zero
+- pick a low volatility and a high volatility
+- confirm the correct volatility is bracketed inside that range
+- repeatedly cut the interval in half until the pricing error is tiny
 
-This is why the solution is stable: bisection is slow but dependable.
-
-Important: this approach **does not use vega** because it does not use Newton–Raphson.
+Why this method: it is slower than Newton’s method but very stable and does not require derivatives (no vega).
 
 ### Step 5: Smooth the implied vol grid using a 2D smoothing spline
-Raw implied-vol grids can have small bumps (even with synthetic data, and especially if noise is added).
+Raw implied-vol grids can be bumpy, especially if you added noise.
 
-So the notebook fits a smooth function over:
-- **moneyness** $M = K / S_0$
-- **maturity** $T$
+So the notebook fits a smooth surface over:
+- moneyness (strike divided by spot)
+- maturity
 
-That gives a surface:
-$$
-\sigma_{\mathrm{smooth}}(M,T).
-$$
-
-Then it evaluates that spline on a dense $(K,T)$ grid for a clean plot.
+Then it evaluates that smooth surface on a dense grid to get a clean surface for plotting and querying.
 
 ### Step 6: Visualize
-You generate:
-- **3D surface**: $(K, T) \mapsto \sigma$
-- **Smile**: for each maturity $T$, plot $\sigma$ versus strike $K$
-- **Term structure**: for a few strikes near spot, plot $\sigma$ versus maturity $T$
+You generate three standard views:
+- **3D surface**: implied volatility as a function of strike and maturity
+- **Smile**: for each maturity, implied volatility versus strike
+- **Term structure**: for strikes near spot, implied volatility versus maturity
 
 ### Step 7: Export to Excel
-The notebook writes an `.xlsx` workbook containing:
-- the synthetic market prices
-- the implied vol grid
+The notebook writes an Excel workbook containing:
+- the synthetic market price grid
+- the implied volatility grid
 
 ---
 
