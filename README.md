@@ -1,127 +1,135 @@
-# Generate a Volatility Surface
-Generate an Options Volatility Surface from synthetic market prices
-# Volatility Surface Project (Python + Excel)
+# Generate a Volatility Surface (from synthetic option prices)
 
-Build an implied-volatility surface from a grid of option prices using:
-1) Black–Scholes call pricing (implemented from scratch)
-2) An implied-volatility solver (root-finding)
-3) Surface smoothing / interpolation
-4) Visualizations: 3D surface, smile, term structure
-5) Save the vol surface and prices in Excel 
+This notebook builds an **implied volatility surface** end-to-end using **synthetic market option prices**. The point is to learn the pipeline clearly.
+
+What you build:
+1. **Generate synthetic call option prices** on a strike × maturity grid using a “true” volatility surface.
+2. Implement **Black–Scholes call pricing** from scratch.
+3. Recover **implied volatility** at each grid point using a **bracketing root-finder (bisection)**.
+4. Fit a **smooth volatility surface** with a **two-dimensional smoothing spline** (to remove bumps).
+5. Plot:
+   - **3D volatility surface**
+   - **volatility smiles** (implied volatility versus strike, per maturity)
+   - **term structure** (implied volatility versus maturity, for strikes near spot)
+6. Export the grids to **Excel**.
 
 ---
 
-## What this project does (in one minute)
-In real markets, implied volatility is not one constant number. It changes across:
-- **Strike** (smile / skew)
+## What this project does
+
+In academic Black–Scholes, volatility is one constant number.
+
+In practice, the market implies **different volatility** depending on:
+- **Strike** (smile or skew)
 - **Maturity** (term structure)
 
-This project takes option prices across strikes and maturities, backs out the implied volatility for each (K, T) point, and then builds a smooth surface you can visualize and use.
+This project starts from an option price grid and backs out the implied volatility at every strike–maturity point, then smooths that grid into a clean surface you can visualize and query.
 
 ---
 
 ## Outputs you get
+
 ### Python
-- A **strike-by-maturity implied volatility grid** (a table)
-- A **smoothed surface** on a dense grid (for clean plots)
-- Interactive plots:
-  - **3D surface**
-  - **Smile** (implied volatility versus strike for fixed maturities)
-  - **Term structure** (implied volatility versus time for fixed strikes)
+- **Market price grid**: call prices \(C_{\text{mkt}}(K,T)\)
+- **Implied volatility grid**: \(\sigma_{\text{imp}}(K,T)\)
+- **Smoothed surface** on a dense grid (clean 3D plot, less bumpiness)
+- Plots:
+  - 3D surface
+  - smile curves
+  - term-structure curves
 
 ### Excel
-- An **Inputs** sheet (spot, rates, dividend, grids)
-- A **TrueVol** sheet (if you’re generating synthetic prices)
-- A **MarketPrices** sheet (Black–Scholes call prices)
-- An **ImpliedVol** sheet (implied vol grid values)
-- A **OneOption** sheet: **Goal Seek** implied volatility for ONE option (K, T)
-- Charts sheet: surface + smile + term structure
+- `MarketPrices` (Synthetic prices from `TrueVol`)
+- `ImpliedVol` (recovered implied volatility grid)
 
 ---
 
-## Methodology (what the code is doing, step-by-step)
+## Methodology 
 
 ### Step 1: Define inputs and grids
 - Spot price: \(S_0\)
-- Strike grid: \(K\_1, \dots, K_n\)
-- Maturity grid: \(T\_1, \dots, T_m\)
 - Risk-free rate: \(r\)
-- Dividend yield (optional): \(q\)
+- Dividend yield: \(q\) (can be zero)
+- Strike grid: \(\{K_1,\dots,K_n\}\)
+- Maturity grid: \(\{T_1,\dots,T_m\}\)
 
-### Step 2: Black–Scholes call pricing (forward direction)
-Given volatility \(\sigma\), compute the call price:
+### Step 2: Create synthetic “market” option prices
+You define a “true” volatility function \(\sigma_{\text{true}}(K,T)\) that has:
+- curvature across strike (smile/skew)
+- structure across time (term structure)
+
+Then you generate synthetic market call prices:
+\[
+C_{\text{mkt}}(K,T) = C_{\text{BS}}\!\left(S_0,K,T,r,q,\sigma_{\text{true}}(K,T)\right)
+\]
+
+Optional: add small noise to mimic bid-ask / quote error (if enabled in the notebook).
+
+### Step 3: Black–Scholes call pricing (forward direction)
+Black–Scholes is the engine that maps volatility to price:
+
 \[
 C = S_0 e^{-qT} N(d_1) - K e^{-rT} N(d_2)
 \]
+
 \[
-d_1 = \frac{\ln(S_0/K) + (r-q + \tfrac{1}{2}\sigma^2)T}{\sigma\sqrt{T}}, \quad
+d_1 = \frac{\ln(S_0/K) + (r-q + \tfrac{1}{2}\sigma^2)T}{\sigma\sqrt{T}},
+\quad
 d_2 = d_1 - \sigma\sqrt{T}
 \]
-This is the “pricing engine” the solver calls repeatedly.
 
-### Step 3: Implied volatility (inverse direction)
-For each observed market price \(C_{\text{mkt}}(K,T)\), solve:
+This function is called repeatedly by the implied-vol solver.
+
+### Step 4: Implied volatility via **bisection** (inverse direction)
+For each market price \(C_{\text{mkt}}(K,T)\), implied volatility solves:
+
 \[
-f(\sigma) = C_{\text{BS}}(\sigma; S_0,K,T,r,q) - C_{\text{mkt}} = 0
+f(\sigma) = C_{\text{BS}}(\sigma;S_0,K,T,r,q) - C_{\text{mkt}} = 0
 \]
-The solver is a numerical root-finder:
-- **Bisection** (slow but reliable) OR
-- **Newton–Raphson** (fast but needs vega and can fail without safeguards)
 
-### Step 4: Build the implied-volatility grid
-Store \(\sigma_{\text{imp}}(K_i,T_j)\) in a table:
-- rows = strikes
-- columns = maturities
+The notebook uses **bisection**:
+- pick a low \(\sigma_{\text{low}}\) and high \(\sigma_{\text{high}}\)
+- ensure the root is bracketed (sign change)
+- repeatedly halve the interval until the pricing error is near zero
 
-This grid is the raw surface before smoothing.
+This is why the solution is stable: bisection is slow but dependable.
 
-### Step 5: Smooth / interpolate the surface (to avoid bumps)
-Real data is discrete and noisy, so we fit an interpolator over \((K,T)\) (or moneyness \(K/S_0\)) to get a smooth surface for plotting and for “looking up” vol at off-grid points.
+Important: this approach **does not use vega** because it does not use Newton–Raphson.
+
+### Step 5: Smooth the implied vol grid using a **2D smoothing spline**
+Raw implied-vol grids can have small bumps (even with synthetic data, and especially if noise is added).
+
+So the notebook fits a smooth function over:
+- **moneyness** \(M = K / S_0\)
+- **maturity** \(T\)
+
+That gives a surface:
+\[
+\sigma_{\text{smooth}}(M,T)
+\]
+
+Then it evaluates that spline on a dense \((K,T)\) grid for a clean plot.
 
 ### Step 6: Visualize
-- **3D surface**: implied vol as a function of strike and time
-- **Smile**: fix T, plot vol versus strike
-- **Term structure**: fix K, plot vol versus maturity
+You generate:
+- **3D surface**: \((K, T) \mapsto \sigma\)
+- **Smile**: for each maturity \(T\), plot \(\sigma\) versus strike \(K\)
+- **Term structure**: for a few strikes near spot, plot \(\sigma\) versus maturity \(T\)
+
+### Step 7: Export to Excel
+The notebook writes an `.xlsx` workbook containing:
+- the synthetic market prices
+- the implied vol grid
 
 ---
 
-## Synthetic market prices
-If you don’t have real option prices, the project can generate “market” prices by:
-1) Defining a “true” volatility function \(\sigma_{\text{true}}(K,T)\) that has smile + term structure
-2) Pricing each option with Black–Scholes using \(\sigma_{\text{true}}\)
-3) Optionally adding tiny noise to mimic bid-ask / quote errors
-
-This is used only to create a clean learning dataset.
-
----
-
-## Repo / notebook structure 
-- `black_scholes_call(...)`  
-  Forward pricing: volatility → price
-- `implied_volatility_solver(...)`  
-  Inversion: price → volatility (root-finding)
-- `build_implied_surface(...)`  
-  Loop through (K, T) grid
-- `smooth_surface(...)`  
-  Interpolation / smoothing on a dense grid
-- `plot_surface(...)`, `plot_smile(...)`, `plot_term_structure(...)`  
-  Charts and diagnostics
-
----
-
-## Requirements (Python)
-Typical dependencies:
+## Requirements
 - `numpy`
 - `pandas`
-- `scipy` (CDF or interpolation, depending on your implementation)
-- `plotly` (for interactive 3D plots) or `matplotlib` (static)
-- `openpyxl` (for Excel generation)
+- `scipy`
+- `plotly`
+- `openpyxl`
 
-If your notebook uses Plotly:
+Install:
 ```bash
 pip install numpy pandas scipy plotly openpyxl
-
-Notes and limitations 
-This notebook is educational. It does not enforce no-arbitrage constraints.
-Production volatility surfaces often impose constraints to avoid calendar-spread or butterfly arbitrage.
-Real market data requires extra care: forwards, discount curves, dividends, day count, quote conventions, and filtering stale quotes.
