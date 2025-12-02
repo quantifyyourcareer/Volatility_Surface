@@ -1,6 +1,6 @@
 # Generate a Volatility Surface (from synthetic option prices)
 
-This notebook builds an **implied volatility surface** end-to-end using **synthetic market option prices**. The point is to learn the pipeline clearly, without relying on math formatting.
+This notebook builds an **implied volatility surface** end-to-end using **synthetic market option prices**. The point is to learn the pipeline clearly.
 
 What you build:
 1. **Generate synthetic call option prices** on a strike × maturity grid using a “true” volatility surface.
