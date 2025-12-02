@@ -1,3 +1,8 @@
+## Notes
+This notebook is educational. It does not enforce no-arbitrage constraints.
+Production volatility surfaces often impose constraints to avoid calendar-spread or butterfly arbitrage.
+Real market data requires extra care: forwards, discount curves, dividends, day count, quote conventions, and filtering stale quotes.
+
 ## References 
 
 ### 1) Black–Scholes option pricing (volatility to price)
